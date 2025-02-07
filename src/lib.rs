@@ -101,7 +101,15 @@ impl Service<Request<Incoming>> for ChorusService {
             // for every peer)
             //
             // This header must be found and be valid for us to proceed
-            if let Some(rip) = req.headers().get("x-real-ip") {
+
+            // fallback to x-forwarded-for if x-real-ip is not present
+            let rip_opt = req
+                .headers()
+                .get("x-real-ip")
+                .map(|f| f.to_owned())
+                .or(get_forwarded_for(req.headers().get("x-forwarded-for")));
+
+            if let Some(rip) = rip_opt {
                 if let Ok(ripstr) = rip.to_str() {
                     if let Ok(ipaddr) = ripstr.parse::<IpAddr>() {
                         let hashed_ip = HashedIp::new(ipaddr);
@@ -604,6 +612,24 @@ impl WebSocketService {
         }
 
         Ok(())
+    }
+}
+
+fn get_forwarded_for(header: Option<&http::HeaderValue>) -> Option<http::HeaderValue> {
+    match header {
+        Some(ff) => {
+            let value: Vec<&str> = ff
+                .to_str()
+                .unwrap_or_default()
+                .split(",")
+                .map(|p| p.trim())
+                .collect();
+
+            value
+                .first()
+                .and_then(|s| http::HeaderValue::from_str(s).ok())
+        }
+        None => None,
     }
 }
 

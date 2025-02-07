@@ -12,6 +12,9 @@ fn main() -> Result<(), Error> {
     let _ = args.next(); // ignore program name
     let config_path = args.next().unwrap();
 
+    // Will allow all npubs even if they are not in the whitelist
+    let all_whitelisted = true;
+
     let mut config = chorus::load_config(config_path)?;
     // Force allow of scraping (this program is a scraper)
     config.allow_scraping = true;
@@ -58,7 +61,7 @@ fn main() -> Result<(), Error> {
         }
 
         // Skip if the author is authorized user
-        if config.user_keys.contains(&event.pubkey()) {
+        if all_whitelisted || config.user_keys.contains(&event.pubkey()) {
             continue;
         }
 
